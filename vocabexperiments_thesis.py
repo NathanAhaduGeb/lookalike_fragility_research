@@ -144,5 +144,5 @@ def add_lookalikes(MODEL, OUT, LOOKALIKES, COPY_TYPE):  # copy_kwargs e.g. alpha
 
 
 if __name__ == "__main__":
-    add_lookalikes(MODEL, OUT, load_lookalikes(), "mean_copy")  # "plain_copy", "mean_copy", or "script_copy"
+    add_lookalikes(MODEL, OUT, load_lookalikes(), "script_copy")  
     
