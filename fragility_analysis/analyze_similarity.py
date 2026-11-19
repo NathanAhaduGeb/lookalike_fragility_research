@@ -1,4 +1,5 @@
 import csv
+import sys
 import numpy as np
 
 
@@ -9,7 +10,9 @@ def biggest_change(sim):
 
 sentences = []
 sims = []
-with open("embedding_similarity.csv", encoding="utf-8") as f:
+# which results to look at, e.g. python analyze_similarity.py embedding_similarity_script_copy.csv
+csv_file = sys.argv[1] if len(sys.argv) > 1 else "embedding_similarity.csv"
+with open(csv_file, encoding="utf-8") as f:
     reader = csv.reader(f)
     header = next(reader)
     num_layers = len([h for h in header if h.startswith("sim_L")])

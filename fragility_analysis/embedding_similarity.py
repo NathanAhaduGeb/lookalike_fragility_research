@@ -1,11 +1,17 @@
 import csv
+import os
 import random
+import sys
 import unicodedata
 import torch
 from transformers import AutoModel, AutoTokenizer
 from vocabexperiments_thesis import MODEL, load_lookalikes
 
 N = 5000
+# which model to test: the original qwen by default, or a folder with a changed model
+# e.g. python embedding_similarity.py ../models/script_copy
+model_path = sys.argv[1] if len(sys.argv) > 1 else MODEL
+out_file = "embedding_similarity.csv" if len(sys.argv) == 1 else f"embedding_similarity_{os.path.basename(model_path.rstrip('/'))}.csv"
 random.seed(0)
 
 # we want the perturbed version not to be affected by normalization 
@@ -40,8 +46,8 @@ def swap_letter(word):
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-tokenizer = AutoTokenizer.from_pretrained(MODEL)
-model = AutoModel.from_pretrained(MODEL, torch_dtype=torch.bfloat16).to(device).eval()
+tokenizer = AutoTokenizer.from_pretrained(model_path)
+model = AutoModel.from_pretrained(model_path, torch_dtype=torch.bfloat16).to(device).eval()
 
 # get the last token embedding for each layer of the model, outputs a tensor of N layers by embedding_dim
 def last_token_layers(text):
@@ -71,10 +77,10 @@ for start, word in sentences:
 
 # save to CSV
 num_layers = len(similarity)
-with open("embedding_similarity.csv", "w", newline="", encoding="utf-8") as f:
+with open(out_file, "w", newline="", encoding="utf-8") as f:
     writer = csv.writer(f)
     header = ["sentence", "perturbed"]
     header += ["sim_L" + str(l) for l in range(num_layers)]
     writer.writerow(header)
     writer.writerows(results)
-print("saved embedding_similarity.csv")
+print("saved", out_file)
