@@ -12,7 +12,7 @@ OUT = "my-model"
 def load_lookalikes(path="chars.txt"):
     lookalikes = {}
     for line in open(path, encoding="utf-8"):
-        line = line.rstrip("\r\n")
+        line = line.rstrip("\r\n")  
         if not line or line.startswith("#"):
             continue
         root = line[0]
@@ -20,70 +20,81 @@ def load_lookalikes(path="chars.txt"):
             continue
         lookalikes[root] = []
         for c in line[1:]:
-            if not c.isascii():  # the 0 and 1 rows list O o I i l | as lookalikes; those are normal chars, keep them out
+            if not c.isascii():  
                 lookalikes[root].append(c)
     return lookalikes
 
 
 def plain_copy(tokenizer, lookalikes, embeddings):
-    """Each lookalike copies the root word's embedding"""
     copy_from = {}
+    #iterate and copy
     for character, look_alikes in lookalikes.items():
         for look_alike in look_alikes:
             copy_from[look_alike] = tokenizer(character, add_special_tokens=False).input_ids
             copy_from[" " + look_alike] = tokenizer(" " + character, add_special_tokens=False).input_ids  #tokenizer counts leading space as char
     new_embeddings = {}
-    for token, ids in copy_from.items():
+    for token, ids in copy_from.items(): #to get vectors back
         new_embeddings[token] = embeddings[ids].mean(dim=0)
     return new_embeddings
 
 
 def mean_copy(tokenizer, lookalikes, embeddings):
-    """Each new lookalike copies the mean of the root + every variant that already has an embedding"""
     copy_from = {}
     for character, look_alikes in lookalikes.items():
-        for prefix in ("", " "):
+        for prefix in ("", " "): 
             encoded = {}
+            # go through all the chars and make a list of the ones that have an embedding already 
             for v in [character] + look_alikes:
                 encoded[v] = tokenizer(prefix + v, add_special_tokens=False).input_ids
             known = []
             for ids in encoded.values():
                 if len(ids) == 1:
                     known.append(ids[0])
-            for v in look_alikes:
-                if len(encoded[v]) > 1:
-                    copy_from[prefix + v] = known or encoded[character]
+            # if we have at least one known embedding, copy it to the unknown ones
+            for c in look_alikes:
+                if len(encoded[c]) > 1:
+                    copy_from[prefix + c] = known or encoded[character]
+    # copy the embeddings to a new list and average them 
     new_embeddings = {}
     for token, ids in copy_from.items():
         new_embeddings[token] = embeddings[ids].mean(dim=0)
     return new_embeddings
 
 
-def script_copy(tokenizer, lookalikes, embeddings, alpha=0.5):
+def script_copy(tokenizer, lookalikes, embeddings, alpha=0.2):
+
     ids_by_script = defaultdict(list)
     for i in range(len(tokenizer)):
+        # Turn the id back into text
         ch = tokenizer.decode([i]).lstrip(" ")
-        if len(ch) == 1 and ch != "\ufffd":  # \ufffd = partial UTF-8 byte token
+
+        if len(ch) == 1 and ch != "\ufffd":
+            # approximate script detection by taking the first word of the Unicode name of the character
             ids_by_script[unicodedata.name(ch, "UNKNOWN").split()[0]].append(i)
+
+    # get the root embedding for each char 
     copy_from = {}
     for character, look_alikes in lookalikes.items():
         for prefix in ("", " "):
             root_vec = embeddings[tokenizer(prefix + character, add_special_tokens=False).input_ids].float().mean(dim=0)
-            for v in look_alikes:
-                if len(tokenizer(prefix + v, add_special_tokens=False).input_ids) == 1:
-                    continue  # already a token, leave it alone
-                script_ids = ids_by_script.get(unicodedata.name(v, "UNKNOWN").split()[0])
+            # skip if the char is in vocab already, if not get the script and average the embeddings plus root embedding
+            for c in look_alikes:
+                if len(tokenizer(prefix + c, add_special_tokens=False).input_ids) == 1:
+                    continue
+                script_ids = ids_by_script.get(unicodedata.name(c, "UNKNOWN").split()[0])
                 if not script_ids:
-                    print(f"no single-char tokens in the script of {v!r}, using plain copy")
+                    print(f"no single-char tokens in the script of {c!r}, using plain copy")
                     vec = root_vec
                 else:
-                    vec = (1 - alpha) * root_vec + alpha * embeddings[script_ids].float().mean(dim=0)
-                copy_from[prefix + v] = vec * root_vec.norm() / vec.norm()  # keep the norm the model expects for a real char
+                    vec = (1 - alpha) * root_vec + alpha * (embeddings[script_ids].float().mean(dim=0))
+                #normalize vector
+                copy_from[prefix + c] = vec * root_vec.norm() / vec.norm()
+
     return copy_from
 
 
 COPY_TYPES = {"plain_copy": plain_copy, "mean_copy": mean_copy, "script_copy": script_copy}
-def add_lookalikes(MODEL, OUT, LOOKALIKES, COPY_TYPE):  # copy_kwargs e.g. alpha=0.3 for the script copies
+def add_lookalikes(MODEL, OUT, LOOKALIKES, COPY_TYPE): 
 
     # make sure that no lookalikes are repeated
     all_spellings = []
