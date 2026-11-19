@@ -14,6 +14,9 @@ with open("embedding_similarity.csv", encoding="utf-8") as f:
     header = next(reader)
     num_layers = len([h for h in header if h.startswith("sim_L")])
     for row in reader:
+        # skip sentences where the swapped letter wasnt in the last token (layer 0 is exactly 1 for those)
+        if float(row[2]) > 0.9999:
+            continue
         sentences.append((row[0], row[1]))
         sims.append([float(x) for x in row[2:]])
 
