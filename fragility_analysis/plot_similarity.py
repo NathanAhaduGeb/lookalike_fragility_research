@@ -17,9 +17,7 @@ with open(vocab_path, encoding="utf-8") as f:
 
 
 def is_known(word):
-    # the model "knows" a word if the word (with the space before it) is a single token in the vocab
-    # qwen's vocab.json writes the space before a word as "Ġ". this only works for plain ascii words
-    # since other characters are stored differently, so we make sure there arent any
+    
     assert word.isascii(), f"{word} has non-ascii characters"
     return "Ġ" + word in vocab
 
@@ -34,7 +32,7 @@ def load_csv(csv_file):
     sims = []
     with open(csv_file, encoding="utf-8") as f:
         reader = csv.reader(f)
-        next(reader)  # skip the header
+        next(reader)  
         for row in reader:
             words.append(row[0].split(" ")[-1])
             sims.append([float(x) for x in row[2:]])
@@ -49,7 +47,6 @@ def get_model_name(csv_file):
 
 
 def plot(groups, out_file):
-    # top plot is the similarity at each layer, bottom plot is the change from previous layer
     fig, (top, bottom) = plt.subplots(2, 1, figsize=(9, 8), sharex=True)
 
     for i in range(len(groups)):
