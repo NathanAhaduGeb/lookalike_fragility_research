@@ -8,8 +8,6 @@ from transformers import AutoModel, AutoTokenizer
 from vocabexperiments_thesis import MODEL, load_lookalikes
 
 N = 5000
-# which model to test: the original qwen by default, or a folder with a changed model
-# e.g. python embedding_similarity.py ../models/script_copy
 model_path = sys.argv[1] if len(sys.argv) > 1 else MODEL
 out_file = "embedding_similarity.csv" if len(sys.argv) == 1 else f"embedding_similarity_{os.path.basename(model_path.rstrip('/'))}.csv"
 random.seed(0)
